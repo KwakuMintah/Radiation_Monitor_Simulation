@@ -63,18 +63,22 @@ def particle_sim(shield,num_particles):
             if particle_states[i] == 0:
                 if shield.h // 2 <= particles[i,1] <= (shield.h // 2 + shield.l):
                     if np.random.rand() < transmission_probabilities:
+                        #print("Transmitted")
                         particle_states[i] = 2 #Transmitted
                     else:
+                        #print("Absorbed")
                         particle_states[i] = 1 #Absorbed
         if np.all(particle_states != 0):
             print("Simulation Ended")
+    
+    update()
     results[material] = np.sum(particle_states == 2)
 
 
 
 
 for material in materials.keys():
-    shield_test = ShieldingObject(material,length=10,width=15,depth=50)
+    shield_test = ShieldingObject(material,length=10,width=15,depth=200)
     vol_test = shield_test.volume()
     particle_sim(shield_test,num_particles=1000000)
 
