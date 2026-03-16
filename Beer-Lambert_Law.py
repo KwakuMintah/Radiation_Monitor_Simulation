@@ -78,9 +78,9 @@ def particle_sim(shield,num_particles):
 
 
 for material in materials.keys():
-    shield_test = ShieldingObject(material,length=10,width=15,depth=200)
+    shield_test = ShieldingObject(material,length=10,width=15,depth=10)
     vol_test = shield_test.volume()
-    particle_sim(shield_test,num_particles=1000000)
+    particle_sim(shield_test,num_particles=300)
 
 materials_list = list(materials.keys())
 transmitted_counts = [results[material] for material in materials_list]
