@@ -1,4 +1,5 @@
 import numpy as np; import matplotlib.pyplot as plt
+#All measurements in m
 
 class RadiativeObject:
 
@@ -22,6 +23,9 @@ class RadiativeObject:
         self.shape = self._shape_aliases[shape]#allows different inputs, for example josh says "puck", kwaku says "pill"
         self.params = kwargs
         #kwargs makes it so that arguments are sorted by keyword rather than index i.e examplePuck = RadiativeObject("pill", depth=5, radius=1) or examplePuck = RadiativeObject("pill", radius=1, depth=5) both work
+        self.loc = self.params.get("location")
+        self.x = self.loc[0]
+        self.y = self.loc[1]
 
     def volume(self):
         if self.shape == "puck":

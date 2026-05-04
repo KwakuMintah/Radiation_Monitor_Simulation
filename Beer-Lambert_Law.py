@@ -3,7 +3,8 @@ import decimal
 import matplotlib.pyplot as plt
 import scipy as sci
 from decimal import Decimal as dec
-#Adapted from the tutorial on Medium by Vipran Vasan
+#Shielding function adapted from the tutorial on Medium by Vipran Vasan
+#All measurements in m
 
 materials = {
     "Lead": {"density": 11.35, "mu": 0.5},
@@ -25,6 +26,9 @@ class ShieldingObject:
         if mat is None:
             mat = materials["Lead"]
         self.params = kwargs
+        self.loc = self.params.get("location")
+        self.x = self.loc[0]
+        self.y = self.loc[1]
     #Replicating Josh's code for defining the volume of the shield. The object will always be a block in this case
     def volume(self):
         self.l = self.params.get("length")
@@ -34,24 +38,30 @@ class ShieldingObject:
             raise ValueError("Block requires 'length', 'width', and 'depth'")
         return self.l * self.w * self.h 
 
-
-def particle_sim(shield,num_particles):
+def particle_gen(num_particles,shield,puck_wid,dist):
     #This initialises the matrix representing the particles. Each is assigned a random value
     particles = np.zeros((num_particles,3))
-    particles[:,0] = np.random.uniform(0, shield.w, size=num_particles) #This is the x position
+    particles[:,0] = np.random.uniform(0, puck_wid, size=num_particles) #This is the x position
     particles[:,1] = np.full(num_particles,0) #This is the y position
 
     particle_states = np.zeros(num_particles,dtype=int) #0->active,1->absorbed,2->transmitted
     #The speed is then applied to all particles uniformly
     #I calculated the speed as a function of the shield's thickness
-    speed = (shield.l/(2*np.cos(np.pi/3))) - 1
-    #print(speed)
-    particles[:, 2] = np.full(num_particles,speed)
+    #speed = (shield.l/(2*np.cos(np.pi/3))) - 1
+    speed = 0.140
+    print(speed)
+    speed_inverse = speed / np.pow(dist,2)
+    print(speed_inverse)
+    particles[:, 2] = np.full(num_particles,speed_inverse)
     
     angles = np.random.uniform(np.pi/3,2*np.pi/3,size=num_particles)
     #This takes a random angle from 60 to 120 degrees, multiplies by the speed then applies it to each particle to determine the location
     particles[:,0] += np.cos(angles) * particles[:,2]
     particles[:,1] += np.sin(angles) * particles[:,2]
+    return particles, particle_states, angles
+
+def particle_sim(shield,num_particles,particles,particle_states,angles):
+    
     detection_layer_y = (shield.h // 2) + shield.l
     #This is the Beer Lambert Law
     transmission_probabilities = np.exp(-shield.mu * shield.l)
@@ -67,7 +77,7 @@ def particle_sim(shield,num_particles):
 
         for i in range(num_particles):
             if particle_states[i] == 0:
-                #print((shield.h // 2),particles[i,1],detection_layer_y)
+                print((shield.h // 2),particles[i,1],detection_layer_y)
                 if shield.h // 2 <= particles[i,1] <= detection_layer_y:
                     if np.random.rand() < transmission_probabilities:
                         #print("Transmitted")
@@ -85,9 +95,10 @@ def particle_sim(shield,num_particles):
 
 
 for material in materials.keys():
-    shield_test = ShieldingObject(material,length=10,width=10,height=10)
+    shield_test = ShieldingObject(material,length=0.01,width=0.01,height=0.01)
     vol_test = shield_test.volume()
-    particle_sim(shield_test,num_particles=100000)
+    parts, part_states, part_angles = particle_gen(num_particles=10,shield=shield_test,puck_wid=0.005,dist=1)
+    particle_sim(shield_test,num_particles=10,particles=parts,particle_states=part_states,angles=part_angles)
 
 materials_list = list(materials.keys())
 transmitted_counts = [results[material] for material in materials_list]
