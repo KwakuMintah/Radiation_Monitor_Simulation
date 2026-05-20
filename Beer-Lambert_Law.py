@@ -26,7 +26,8 @@ class ShieldingObject:
         if mat is None:
             mat = materials["Lead"]
         self.params = kwargs
-        self.loc = self.params.get("location")
+        #fix bug where 'NoneType' object is not subscriptable due to location not being provided in kwargs
+        self.loc = self.params.get("location", (0,0))
         self.x = self.loc[0]
         self.y = self.loc[1]
     #Replicating Josh's code for defining the volume of the shield. The object will always be a block in this case
@@ -95,7 +96,7 @@ def particle_sim(shield,num_particles,particles,particle_states,angles):
 
 
 for material in materials.keys():
-    shield_test = ShieldingObject(material,length=0.01,width=0.01,height=0.01)
+    shield_test = ShieldingObject(material,length=0.02,width=0.01,height=0.01)
     vol_test = shield_test.volume()
     parts, part_states, part_angles = particle_gen(num_particles=10,shield=shield_test,puck_wid=0.005,dist=1)
     particle_sim(shield_test,num_particles=10,particles=parts,particle_states=part_states,angles=part_angles)
@@ -103,3 +104,42 @@ for material in materials.keys():
 materials_list = list(materials.keys())
 transmitted_counts = [results[material] for material in materials_list]
 print(transmitted_counts)
+
+#exit position calculation and output
+def compute_exit_positions(shield, particles, particle_states, angles):
+    
+    #for transmitted particles, computes exit coordinates and end face of the shield, using particle position and angle when 'hitting'
+    #the shield face initially, then continues that trajectory linearly to end face.
+   
+    detection_layer_y = (shield.h // 2) + shield.l
+    exit_positions = []
+    for i in range(len(particle_states)):
+        if particle_states[i] == 2:
+            # Current position inside shield
+            x_curr, y_curr = particles[i, 0], particles[i, 1]
+            theta = angles[i]
+            dy = detection_layer_y - y_curr
+            if dy > 0 and np.sin(theta) != 0:
+                dx = dy * (np.cos(theta) / np.sin(theta))
+                x_exit = x_curr + dx
+                y_exit = detection_layer_y
+                exit_positions.append((x_exit, y_exit))
+            else:
+                exit_positions.append((x_curr, y_curr))
+    return np.array(exit_positions) if exit_positions else np.empty((0, 2))
+
+# stores exit positions
+exit_positions_by_material = {}
+for material in materials.keys():
+    shield_test = ShieldingObject(material, length=1.2, width=0.01, height=0.01, location=(0,0))
+    shield_test.volume()
+    parts, part_states, part_angles = particle_gen(num_particles=10, shield=shield_test, puck_wid=0.005, dist=1)
+    particle_sim(shield_test, num_particles=10, particles=parts, particle_states=part_states, angles=part_angles)
+    
+    # Compute exit positions for transmitted particles
+    exit_pos = compute_exit_positions(shield_test, parts, part_states, part_angles)
+    exit_positions_by_material[material] = exit_pos
+    
+    print(f"\n{material} – Transmitted particles: {len(exit_pos)}")
+    print("Exit positions (x, y) [m]:")
+    print(exit_pos)
