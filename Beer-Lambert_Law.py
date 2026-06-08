@@ -50,9 +50,9 @@ def particle_gen(num_particles,shield,puck_wid,dist):
     #I calculated the speed as a function of the shield's thickness
     #speed = (shield.l/(2*np.cos(np.pi/3))) - 1
     speed = 0.140
-    print(speed)
+    #print(speed)
     speed_inverse = speed / np.pow(dist,2)
-    print(speed_inverse)
+    #print(speed_inverse)
     particles[:, 2] = np.full(num_particles,speed_inverse)
     
     angles = np.random.uniform(np.pi/3,2*np.pi/3,size=num_particles)

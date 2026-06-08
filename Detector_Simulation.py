@@ -94,14 +94,34 @@ class ShieldingObject:
         self.w = self.params.get("width")
         self.h = self.params.get("height")
         #This is to define the space the particle must be within to interact
-        self.x_one = self.x - (self.w/2)
-        self.x_two = self.x + (self.w/2)
-        self.y_one = self.y - (self.l/2)
-        self.y_two = self.y + (self.l/2)
+        self.x_one = self.x - (self.l/2)
+        self.x_two = self.x + (self.l/2)
+        self.y_one = self.y - (self.w/2)
+        self.y_two = self.y + (self.w/2)
         if self.l is None or self.w is None or self.h is None:
             raise ValueError("Block requires 'length', 'width', and 'depth'")
         return self.l * self.w * self.h
-    
+
+class DetectorObject:
+    def __init__(self,**kwargs):
+        self.params = kwargs
+        self.loc = self.params.get("location")
+        self.x = self.loc[0]
+        self.y = self.loc[1]
+    #This is the code for the location and size of the detector
+    def volume(self):
+        self.l = self.params.get("length")
+        self.w = self.params.get("width")
+        self.h = self.params.get("height")
+        #This is to define the space the particle must be within to interact with the detector
+        self.x_one = self.x - (self.l/2)
+        self.x_two = self.x + (self.l/2)
+        self.y_one = self.y - (self.w/2)
+        self.y_two = self.y + (self.w/2)
+        if self.l is None or self.w is None or self.h is None:
+            raise ValueError("Block requires 'length', 'width', and 'depth'")
+        return self.l * self.w * self.h
+
 def particle_gen(shield,source):
     #This code assumes the source and shield are in a straight line across the y axis
     dist = abs(source.y - shield.y)
@@ -153,7 +173,7 @@ def particle_sim(shield,source,particles,particle_states,angles):
                 #print(shield.y_one,particles[i,1],shield.y_two)
                 if shield.x_one <= particles[i,0] <= shield.x_two:
                     #print('x')
-                    if shield.y_one <= particles[i,1]:# <= shield.y_two:
+                    if shield.y_two <= particles[i,1]:# >= shield.y_two:
                         #print('y')
                         if np.random.rand() < transmission_probabilities:
                             #print("Transmitted")
@@ -165,17 +185,64 @@ def particle_sim(shield,source,particles,particle_states,angles):
             print("Simulation Ended")
     
     update()
-    results[material] = np.sum(particle_states == 2)
-        
+    #results[material] = np.sum(particle_states == 2)
+
+    #Himesh's code on exit positions output
+    detection_layer_y = (shield.h // 2) + shield.l
+    exit_positions = []
+    for i in range(len(particle_states)):
+        if particle_states[i] == 2:
+            # Current position inside shield
+            x_curr, y_curr = particles[i, 0], particles[i, 1]
+            theta = angles[i]
+            dy = detection_layer_y - y_curr
+            if dy > 0 and np.sin(theta) != 0:
+                dx = dy * (np.cos(theta) / np.sin(theta))
+                x_exit = x_curr + dx
+                y_exit = detection_layer_y
+                exit_positions.append((x_exit, y_exit))
+            else:
+                exit_positions.append((x_curr, y_curr))
+    return np.array(exit_positions) if exit_positions else np.empty((0, 2))
+
+def particle_detection(detector,exit_positions):
+    count = 0
+    for pos in exit_positions:
+        if detector.x_one <= pos[0] <= detector.x_two:
+            if detector.y_two <= pos[1]:# <= detector.y_two:
+                count += 1
+    return count
+
+''' 
 for material in materials.keys():
     #puck_test = RadioactiveObject("block",length=0.01,width=0.01,height=0.01,location=[0,0],num_particles=1000000)
-    puck_test = RadioactiveObject("pill","Cs-137",radius=0.01,height=0.01,location=[0,0],num_particles=1000000)
+    puck_test = RadioactiveObject("pill","Cs-137",radius=0.01,height=0.01,location=[0,0],num_particles=100)
     puck_vol = puck_test.volume()
-    shield_test = ShieldingObject(material,length=0.1,width=0.05,height=0.01,location=[0,1])
+    shield_test = ShieldingObject(material,length=0.1,width=0.5,height=0.01,location=[0,1])
     vol_test = shield_test.volume()
     parts, part_states, part_angles = particle_gen(shield=shield_test,source=puck_test)
-    particle_sim(shield=shield_test,source=puck_test,particles=parts,particle_states=part_states,angles=part_angles)
+    exit_pos = particle_sim(shield=shield_test,source=puck_test,particles=parts,particle_states=part_states,angles=part_angles)
+    detector_test = DetectorObject(length=0.1,width=0.1,height=0.5,location=[0,1.5])
+    detector_vol = detector_test.volume()
+    particle_count = particle_detection(detector_test,exit_pos)
 
 materials_list = list(materials.keys())
 transmitted_counts = [results[material] for material in materials_list]
 print(transmitted_counts)
+print(exit_pos)
+print(particle_count)
+'''
+
+#This is a test moving the detector towards the source
+positions = [2,1.9,1.8,1.7,1.6,1.5,1.4,1.3,1.2,1.1,1]
+for pos in positions:
+    puck_test = RadioactiveObject("pill","Cs-137",radius=0.01,height=0.01,location=[0,0],num_particles=100)
+    puck_vol = puck_test.volume()
+    shield_test = ShieldingObject("Lead",length=0.1,width=0.5,height=0.01,location=[0,1])
+    vol_test = shield_test.volume()
+    parts, part_states, part_angles = particle_gen(shield=shield_test,source=puck_test)
+    exit_pos = particle_sim(shield=shield_test,source=puck_test,particles=parts,particle_states=part_states,angles=part_angles)
+    detector_test = DetectorObject(length=0.1,width=0.1,height=0.5,location=[0,pos])
+    detector_vol = detector_test.volume()
+    particle_count = particle_detection(detector_test,exit_pos)
+    print(particle_count)   
